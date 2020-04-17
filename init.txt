@@ -1,3 +1,4 @@
+-- -*- mode: lua; -*-
 {
 -- UTILITY FUNCTIONS
 
@@ -399,6 +400,8 @@ function ready()
 end
 }
 
+# KEYBINDS
+
 macros += M 5 ===custom_rest
 macros += M o ===custom_autoexplore
 bindkey = [~] CMD_LUA_CONSOLE
@@ -406,8 +409,6 @@ macros += M t Z
 macros += M T t
 macros += M z \{32}
 macros += M p ===dmsl_dance_init
-
-# DISPLAY & INTERFACE
 
 macros += M b ===custom_move_dl
 macros += M h ===custom_move_l
@@ -424,6 +425,8 @@ macros += M \{-353} ===custom_autofight_nomove
 macros += M \{-263} ===custom_autofight
 
 macros += M \{27} ===toggle_safe_move
+
+# DISPLAY & INTERFACE
 
 allow_extended_colours = true
 use_fake_player_cursor = true
