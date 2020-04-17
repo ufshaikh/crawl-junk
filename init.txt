@@ -1,0 +1,828 @@
+{
+
+dmsl_state = 0 -- normal, unequipping, casting, reequipping
+arm_slot = nil
+weap_slot = nil
+dm = "deflect missiles"
+debugp = true
+
+function magic(command)
+  crawl.process_keys(command .. string.char(27) .. string.char(27) ..
+                     string.char(27))
+end
+
+function dprint(str)
+   if debugp then
+      crawl.mpr(str)
+   end
+end
+
+function dmsl_dance_init()
+   if can_dmsl_dance() then
+      dprint("Dancing!")
+      arm = items.equipped_at("armour")
+      if arm then arm_slot = arm.slot end
+      weap = items.equipped_at("weapon")
+      if weap then weap_slot = weap.slot else weap_slot = (-1) end
+      dmsl_state = 1
+   else
+      dprint("Can't dance.")
+   end
+end
+
+function can_dmsl_dance()
+   if not spells.memorised(dm)
+    --  or spells.fail_severity(dm) > 1
+    --  or spells.fail(dm) > 50
+   or you.status(dm) then
+      return false
+   end
+   return true
+end
+
+function dmsl_dance()
+   if dmsl_state == 0 then
+      return
+   end
+
+   if not you.feel_safe() then
+      -- abort, let the player clean the situation up
+      dmsl_state = 0
+      return
+   end
+
+   if dmsl_state == 1 then
+      dprint("Dealing with dmsl_state of 1.")
+      cur_arm = items.equipped_at("armour")
+      if cur_arm then
+         magic("T" .. items.index_to_letter(cur_arm.slot))
+         return
+      end
+      --swap to wiz staff/stat stick etc. TODO ring swapping
+      cur_weap = items.equipped_at("weapon")
+      if not cur_weap or not string.find(cur_weap.inscription, "dmsl") then
+         for i, j in ipairs(items.inventory()) do
+            if string.find(j.inscription, "dmsl") then
+               magic("w" .. items.index_to_letter(j.slot))
+               return
+            end
+         end
+      end
+      dmsl_state = 2
+      crawl.sendkeys(" ")
+      return
+   end
+
+   if dmsl_state == 2 then
+      dprint("Dealing with dmsl_state of 2.")
+      if you.hunger() < 3 then
+         dmsl_state = 0
+         return
+      end
+--nb, documentation is incorrect, you.contaminated is a number representing
+--contam level not a bool
+      if you.mp() > 5 and you.contaminated() <= 2 then
+         dm_slot = spells.letter(dm)
+         -- I'm not sure how we could get into this state, but abort if we do
+         if not dm_slot then
+            dmsl_state = 0
+            return
+         end
+         dprint("Casting dmsl.")
+         magic("Z" .. dm_slot)
+         if you.status(dm) then
+            dmsl_state = 3
+         end
+      else
+         dprint("Resting for mp or contamination.")
+         magic(".")
+      end
+      return
+   end
+
+   if dmsl_state == 3 then
+      dprint("Dealing with dmsl_state of 3.")
+      if arm_slot then
+         magic("W" .. items.index_to_letter(arm_slot))
+         arm_slot = nil
+         return
+      end
+      if weap_slot then
+         if weap_slot == (-1) then
+            let = "-"
+         else
+            let = items.index_to_letter(weap_slot)
+         end
+         weap_slot = nil
+         magic("w" .. let)
+      end
+      dmsl_state = 0
+   end
+end
+
+function in_list_p(val, list)
+    for i, j in ipairs(list) do
+        if j == val then
+        return true
+        end
+    end
+    return false
+end
+
+function hp_percent() a,b=you.hp() return 100*a/b end
+
+function mp_percent() a,b=you.mp() return 100*a/b end
+
+function conditional_cast_regen(hp_per_th, mp_th) --thresholds
+    if spells.memorised("Regeneration")
+        and spells.fail_severity("Regeneration") < 1
+        and spells.fail("Regeneration") < 50
+        -- you.status("Regenerating") does not get the expected result, idk why
+        and (not string.find(you.status(), "regen") --needs lowercase
+            or string.find(you.status(), "regen.*expiring"))
+        and you.mp() > mp_th
+        and hp_percent() < hp_per_th
+        and you.contaminated()==0
+    and you.hunger() > 3 then
+        return "ZR"
+    else
+        return ""
+    end
+end
+
+function custom_rest()
+    if not you.feel_safe() then
+        crawl.mpr("But you're not safe!")
+        return
+    end
+    if hp_percent() == 100 and mp_percent() == 100 or
+    mp_percent() == 100 and you.race() == "Deep Dwarf" then
+        if crawl.yesnoquit("Wait 100 turns?", true, 'n') == 1 then
+        crawl.sendkeys("5")
+        end
+    else crawl.sendkeys(conditional_cast_regen(90, 3) .. "5")
+    end
+end
+
+function swap_for_autoexplore()
+    local w = items.equipped_at("Weapon")
+    if w and string.find(w.inscription, "autoexplore") then
+        return nil
+    else
+        for i, j in ipairs(items.inventory()) do
+        if string.find(j.inscription, "autoexplore") then
+            return items.index_to_letter(j.slot)
+        end
+        end
+        return nil
+    end
+end
+
+function custom_autoexplore()
+    if not you.feel_safe() then
+        crawl.mpr("But you're not safe!")
+        return
+    end
+    local action = ""
+    local swap = swap_for_autoexplore()
+    if swap then action = "w" .. swap end
+    local dummy, mmp = you.mp()
+    local mp_threshold = math.max(3, math.ceil(mmp / 2))
+    action = action .. conditional_cast_regen(101, mp_threshold) .. "o"
+    crawl.sendkeys(action)
+end
+
+function custom_move_dl()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_DOWN_LEFT"
+    else
+        a[1] = "CMD_MOVE_DOWN_LEFT"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_move_l()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_LEFT"
+    else
+        a[1] = "CMD_MOVE_LEFT"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_move_d()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_DOWN"
+    else
+        a[1] = "CMD_MOVE_DOWN"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_move_r()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_RIGHT"
+    else
+        a[1] = "CMD_MOVE_RIGHT"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_move_dr()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_DOWN_RIGHT"
+    else
+        a[1] = "CMD_MOVE_DOWN_RIGHT"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_move_u()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_UP"
+    else
+        a[1] = "CMD_MOVE_UP"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_move_ur()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_UP_RIGHT"
+    else
+        a[1] = "CMD_MOVE_UP_RIGHT"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_move_ul()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_SAFE_MOVE_UP_LEFT"
+    else
+        a[1] = "CMD_MOVE_UP_LEFT"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_autofight()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_NO_CMD_DEFAULT"
+    elseif you.status("icy armour") or you.status("icy armour (expiring)") then
+        a[1] = "CMD_AUTOFIGHT_NOMOVE"
+    else
+        a[1] = "CMD_AUTOFIGHT"
+    end
+    crawl.do_commands(a)
+end
+
+function custom_autofight_nomove()
+    a = {}
+    if safe_move_toggle then
+        a[1] = "CMD_NO_CMD_DEFAULT"
+    else
+        a[1] = "CMD_AUTOFIGHT_NOMOVE"
+    end
+    crawl.do_commands(a)
+end
+
+safe_move_toggle = true
+crawl.setopt("mon_glyph += player : green")
+
+function toggle_safe_move()
+    if safe_move_toggle then
+        safe_move_toggle = false
+        crawl.message("<cyan>safe move off</cyan>", 0)
+        crawl.setopt("mon_glyph += player : red")
+    else
+        safe_move_toggle = true
+        crawl.message("<cyan>safe move on</cyan>", 0)
+        crawl.setopt("mon_glyph += player : green")
+    end
+end
+
+function ready()
+  if you.status("death's door (expiring)") then
+    crawl.mpr("DDoor is almost expired!")
+  end
+  dmsl_dance()
+end
+}
+
+macros += M 5 ===custom_rest
+macros += M o ===custom_autoexplore
+bindkey = [~] CMD_LUA_CONSOLE
+macros += M t Z
+macros += M T t
+macros += M z \{32}
+macros += M p ===dmsl_dance_init
+
+# DISPLAY & INTERFACE
+
+macros += M b ===custom_move_dl
+macros += M h ===custom_move_l
+macros += M j ===custom_move_d
+macros += M k ===custom_move_u
+macros += M l ===custom_move_r
+macros += M n ===custom_move_dr
+macros += M u ===custom_move_ur
+macros += M y ===custom_move_ul
+
+macros += M \{9} ===custom_autofight
+macros += M \{8} ===custom_autofight
+macros += M \{-353} ===custom_autofight_nomove
+macros += M \{-263} ===custom_autofight
+
+macros += M \{27} ===toggle_safe_move
+
+allow_extended_colours = true
+use_fake_player_cursor = true
+bold_brightens_foreground = true
+feature = explore horizon {',,green}
+always_show_exclusions = true
+view_lock = true
+cloud_status = true
+tile_water_anim = false
+
+sort_menus = true
+equip_unequip = true
+
+show_more = false
+small_more = true
+easy_confirm = none
+msg_min_height = 7
+msg_max_height = 15
+
+wall_jump_move = true
+wall_jump_prompt = true
+
+default_manual_training = true
+default_show_all_skills = true
+skill_focus = false
+
+autofight_stop = 75
+hp_warning = 50
+mp_warning = 50
+hp_colour = 100:green, 99:lightgrey, 80:yellow, 70:lightred, 50:red
+mp_colour = 100:green, 99:lightgrey, 80:yellow, 70:lightred, 50:red
+stat_colour = 3:red, 7:lightred
+
+auto_butcher = hungry
+confirm_butcher = never
+easy_eat_chunks = true
+auto_eat_chunks = true
+auto_drop_chunks = yes
+
+show_god_gift = yes
+
+warn_hatches = true
+
+# MUTING AND IGNORING MESSAGES
+message_colour += mute:All of the chunks of flesh in your inventory have rotted away
+message_colour += mute:Some of the chunks of flesh in your inventory have rotted away
+message_colour += mute:Your skin .*crawling
+message_colour += mute:Your icy armour.*falls away as you move
+message_colour += mute:(Your|The) .* (melds|unmelds) (into|from) your body
+
+message_colour += mute:There is an open door.*here
+message_colour += mute:There is a stone staircase.*here
+message_colour += mute:You swap places
+
+alias ignore := runrest_ignore_message
+
+ignore += icy armour (starts to melt|evaporates)
+
+: if you.race() == "Gnoll" then
+message_colour += mute:skill increases to level
+: end
+
+# GLYPHS
+# Monsters that can be easy to miss
+mon_glyph += * : {0x2638}
+mon_glyph ^= battlesphere : {0x2638}
+mon_glyph ^= ( : magenta {
+mon_glyph ^= spectral weapon : lightcyan {
+
+# CLASSED DEMONSPAWN
+mon_glyph += blood saint:9
+mon_glyph += warmonger:9
+mon_glyph += corrupter:9
+mon_glyph += black sun:9
+
+# FEATURES
+feature += shallow water {x007e}
+feature += escape hatch in the ceiling {x2264}
+feature += escape hatch in the floor {x2265}
+
+# WALLS
+feature += wall {x2591}
+feature += crystal wall {#}
+feature += stone wall {x2593}
+feature += metal wall {x2261}
+feature += unnaturally hard rock wall {x2752}
+
+# KEYBINDS
+# clear defaults I don't like
+bindkey = [1] CMD_NO_CMD_DEFAULT
+bindkey = [2] CMD_NO_CMD_DEFAULT
+bindkey = [3] CMD_NO_CMD_DEFAULT
+bindkey = [4] CMD_NO_CMD_DEFAULT
+# leave 5 as default
+bindkey = [6] CMD_NO_CMD_DEFAULT
+bindkey = [7] CMD_NO_CMD_DEFAULT
+bindkey = [8] CMD_NO_CMD_DEFAULT
+bindkey = [9] CMD_NO_CMD_DEFAULT
+
+bindkey = [(] CMD_NO_CMD_DEFAULT
+bindkey = [)] CMD_NO_CMD_DEFAULT
+
+# AUTO TRAVEL
+travel_delay = -1
+explore_delay = 30
+show_travel_trail = true
+travel_open_doors = false
+autofight_caught = true
+
+explore_stop = glowing_items,artefacts,greedy_pickup_smart
+explore_stop += stairs,shops
+explore_stop += altars,portals,branches,runed_doors
+explore_stop += greedy_visited_item_stack
+
+explore_wall_bias = 5
+travel_key_stop = true
+runrest_ignore_poison = 3:30
+runrest_ignore_monster += butterfly:1
+
+: if you.god() ~= "Trog" or you.spirit_shield() > 0 then
+rest_wait_both = true
+: end
+
+rest_wait_ancestor = true
+
+# FORCE MORES
+more := force_more_message
+
+# Item Use
+more += drinks a potion
+more += evokes.*(amulet|ring)
+more += reads a scroll
+more += zaps a (wand|rod)
+more += is carrying.*wand
+more += is quivering
+
+# Monsters doing scary stuff
+more += calcifying dust hits you
+more += You are engulfed in calcifying dust
+more += elemental engulfs you
+more += You are electrocuted
+more += Space warps horribly around you
+more += Space bends around you
+more += (comes? into view|opens the).*distort
+more += You convulse
+
+# Status
+more += You feel less protected from
+more += You.*moving more slowly
+more += You.*finished your manual.*
+more += You miscast
+more += You fail to use your ability
+more += Your time is quickly running out
+more += Your life is in your own hands
+more += Your transformation is almost over
+more += You feel yourself come back to life
+more += You flicker back into view
+more += The darkness around you begins to abate
+more += The ambient light returns to normal
+
+# Religion
+more += protects you from harm
+
+# Traps
+more += fall into a shaft
+more += mark forms upon you
+
+# Terrible Monsters
+more += 's ghost.*(comes? into view|opens the)
+more += A player ghost.*(comes? into view|opens the)
+more += boggarts?.*(comes? into view|opens the)
+more += floating eyes?.*(comes? into view|opens the)
+more += shining eyes?.*(comes? into view|opens the)
+more += curse skull.*comes? into view
+more += [Ff]iend.*(comes? into view|opens the)
+more += flayed ghost.*(comes? into view|opens the)
+more += giant eyeball.*comes? into view
+more += giant orange brains?.*(comes? into view|opens the)
+more += giant spore.*comes? into view
+more += hellion.*(comes? into view|opens the)
+more += ironbrand convoker.*(comes? into view|opens the)
+more += recite a word of recall
+more += Lich.*(comes? into view|opens the)
+more += orange crystal statue.*comes? into view
+more += shadow demons?.*(comes? into view|opens the)
+more += silver statue.*comes? into view
+more += tormentor.*(comes? into view|opens the)
+more += ghost moth.*(comes? into view|opens the)
+more += You feel you are being watched
+
+# Uniques
+more += 27-headed.*(comes? into view|opens the)
+more += Agnes.*(comes? into view|opens the)
+more += Aizul.*(comes? into view|opens the)
+more += Antaeus.*(comes? into view|opens the)
+more += Arachne.*(comes? into view|opens the)
+more += Asmodeus.*(comes? into view|opens the)
+more += Asterion.*(comes? into view|opens the)
+more += Azrael.*(comes? into view|opens the)
+more += Bai Suzhen.*(comes? into view|opens the)
+more += Blork the orc.*(comes? into view|opens the)
+more += Boris.*(comes? into view|opens the)
+more += Cerebov.*(comes? into view|opens the)
+more += Crazy Yiuf.*(comes? into view|opens the)
+more += Dispater.*(comes? into view|opens the)
+more += Dissolution.*(comes? into view|opens the)
+more += Donald.*(comes? into view|opens the)
+more += Dowan.*(comes? into view|opens the)
+more += Duvessa.*(comes? into view|opens the)
+more += Edmund.*(comes? into view|opens the)
+more += Ereshkigal.*(comes? into view|opens the)
+more += Erica.*(comes? into view|opens the)
+more += Erolcha.*(comes? into view|opens the)
+more += Eustachio.*(comes? into view|opens the)
+more += Fannar.*(comes? into view|opens the)
+more += Frances.*(comes? into view|opens the)
+more += Francis.*(comes? into view|opens the)
+more += Frederick.*(comes? into view|opens the)
+more += Gastronok.*(comes? into view|opens the)
+more += Geryon.*(comes? into view|opens the)
+more += Gloorx Vloq.*(comes? into view|opens the)
+more += Grinder.*(comes? into view|opens the)
+more += Grum.*(comes? into view|opens the)
+more += Harold.*(comes? into view|opens the)
+more += Ignacio.*(comes? into view|opens the)
+more += Ijyb.*(comes? into view|opens the)
+more += Ilsuiw.*(comes? into view|opens the)
+more += Jessica.*(comes? into view|opens the)
+more += Jorgrun.*(comes? into view|opens the)
+more += Jory.*(comes? into view|opens the)
+more += Joseph.*(comes? into view|opens the)
+more += Josephine.*(comes? into view|opens the)
+more += Jozef.*(comes? into view|opens the)
+more += Khufu.*(comes? into view|opens the)
+more += Kirke.*(comes? into view|opens the)
+more += Lamia.*(comes? into view|opens the)
+more += Lom Lobon.*(comes? into view|opens the)
+more += Louise.*(comes? into view|opens the)
+more += Mara.*(comes? into view|opens the)
+more += Margery.*(comes? into view|opens the)
+more += Maud.*(comes? into view|opens the)
+more += Maurice.*(comes? into view|opens the)
+more += Menkaure.*(comes? into view|opens the)
+more += Mennas.*(comes? into view|opens the)
+more += Mnoleg.*(comes? into view|opens the)
+more += Murray.*(comes? into view|opens the)
+more += Natasha.*(comes? into view|opens the)
+more += Nergalle.*(comes? into view|opens the)
+more += Nessos.*(comes? into view|opens the)
+more += Nikola.*(comes? into view|opens the)
+more += Norris.*(comes? into view|opens the)
+more += Pikel.*(comes? into view|opens the)
+more += Polyphemus.*(comes? into view|opens the)
+more += Prince Ribbit.*(comes? into view|opens the)
+more += Psyche.*(comes? into view|opens the)
+more += Purgy.*(comes? into view|opens the)
+more += Roxanne.*(comes? into view|opens the)
+more += Rupert.*(comes? into view|opens the)
+more += Saint Roka.*(comes? into view|opens the)
+more += Sigmund.*(comes? into view|opens the)
+more += Snorg.*(comes? into view|opens the)
+more += Sojobo.*(comes? into view|opens the)
+more += Sonja.*(comes? into view|opens the)
+more += Terence.*(comes? into view|opens the)
+more += The Lernaean hydra.*(comes? into view|opens the)
+more += The royal jelly.*(comes? into view|opens the)
+more += The Serpent of Hell.*(comes? into view|opens the)
+more += Tiamat.*(comes? into view|opens the)
+more += Urug.*(comes? into view|opens the)
+more += Vashnia.*(comes? into view|opens the)
+more += Wiglaf.*(comes? into view|opens the)
+more += Xtahua.*(comes? into view|opens the)
+
+# Portals
+
+more += ticking.*clock
+more += dying ticks
+more += distant snort
+more += coins.*counted
+more += tolling.*bell
+more += roar of battle
+more += creaking.*portcullis
+more += portcullis is probably
+more += wave of frost
+more += crackling.*melting
+more += hiss.*sand
+more += sound.*rushing water
+more += rusting.*drain
+more += drain falling apart
+more += heat about you
+more += falling.*rocks
+more += rumble.*avalanche of rocks
+more += crackle.*arcane power
+more += crackle.*magical portal
+more += distant wind
+more += whistling.*wind
+more += rapidly growing quiet
+
+# Flash
+flash := flash_screen_message
+flash += Your life is in your own hands
+flash += Your time is quickly running out
+flash += You flicker back into view
+flash += Your transformation is almost over
+flash += You feel yourself come back to life
+flash += The darkness around you begins to abate
+flash += The ambient light returns to normal
+
+# SPELL SLOTS
+
+slot := spell_slot
+
+spell_slot += regeneration:R
+spell_slot += ensorcelled hibernation:e
+spell_slot += shroud of golubria:G
+spell_slot += ozocubu's armour:A
+spell_slot += swiftness:S
+spell_slot += ^blink:+B
+spell_slot += dispel undead:jluy;
+spell_slot += sublimation of blood:m
+spell_slot += apportation:+g
+spell_slot += blade hands:jluy;
+spell_slot += mephitic cloud:jluy;
+spell_slot += dazzling spray:jluy;
+spell_slot += dispersal:jluy;
+spell_slot += dragon form:jluy;
+spell_slot += ring of flames:F
+spell_slot += invisibility:I
+spell_slot += ice form:jluy;
+spell_slot += summon ice beast:jluy;
+spell_slot += disjunction:J
+spell_slot += necromutation:jluy;
+spell_slot += borgnjor's revivification:QWFP
+spell_slot += deflect missiles:+D
+spell_slot += statue form:jluy;
+spell_slot += controlled blink:V
+spell_slot += death's door:QWFP
+
+# low-level attack spells
+spell_slot += freeze:arst
+spell_slot += magic dart:arst
+spell_slot += flame tongue:arst
+spell_slot += pain:arst
+spell_slot += shock:arst
+spell_slot += sandblast:arst
+spell_slot += sting:arst
+spell_slot += beastly appendage:arst
+
+spell_slot += throw frost:arst
+spell_slot += throw flame:arst
+spell_slot += call imp:jluy;
+spell_slot += confuse:+c
+spell_slot += static discharge:arst
+spell_slot += vampiric draining:arst
+spell_slot += spider form:jluy;
+
+# utility attack spells
+spell_slot += conjure flame:+d
+spell_slot += poisonous cloud:hk
+spell_slot += freezing cloud:hk
+spell_slot += ozocubu's refrigeration:hk
+spell_slot += conjure ball lightning:hneio
+spell_slot += animate dead:hk
+spell_slot += recall:hk
+spell_slot += fireball:hneio
+spell_slot += airstrike:hneio
+spell_slot += iskenderun's battlesphere:t
+spell_slot += fulminant prism:hneio
+
+# bolts
+spell_slot += bolt:hneio
+
+# staple spells for killing stuff
+spell_slot += stone arrow:hneio
+spell_slot += iskenderun's mystic blast:hneio
+spell_slot += throw icicle:hneio
+
+spell_slot += agony:hneio
+spell_slot += lee's rapid deconstruction:hneio
+
+spell_slot += sticky flame:+s
+spell_slot += iron shot:hneio
+spell_slot += poison arrow:hneio
+spell_slot += orb of destruction:hneio
+spell_slot += lehudib's crystal spear:hneio
+spell_slot += chain lightning:H
+
+# big stuff
+spell_slot += fire storm:T
+spell_slot += glaciate:T
+spell_slot += shatter:T
+spell_slot += tornado:T
+
+# other
+spell_slot += passage of golubria:p
+spell_slot += portal projectile:P
+spell_slot += passwall:v
+spell_slot += death channel:hk
+spell_slot += discord:hk
+spell_slot += olgreb's toxic radiance:hk
+
+# CONFIRM ACTIONS
+confirm_action += Death's Door
+confirm_action += Revivification
+
+# AUTO EXCLUDE
+
+## dangerous monsters ##
+auto_exclude += ancient lich, death drake, hydra, ice statue, jelly, orb of fire
+
+## paralysing monsters and uniques ##
+auto_exclude += [^c] wizard, ancient lich, Ereshkigal, Erolcha, eyeball, Grinder, Jory, lich
+auto_exclude += Norris, ogre-mage, orb of eyes, orc sorcerer, Rupert, sphinx, vampire knight
+
+## other uniques and unique followers ##
+auto_exclude += Agnes, Aizul, Arachne, Asterion, Blork, Boris, Crazy Yiuf, Donald, Dowan
+auto_exclude += Duvessa, Edmund, Erica, Eustachio, Fannar, Frances, Frederick, Gastronok
+auto_exclude += Grum, Harold, Ijyb, Jessica, Jorgrun, Joseph, Kirke, Louise, Mara, Maud
+auto_exclude += Maurice, Menkaure, Mennas, Natasha, Nergalle, Nessos, Nikola, Pikel
+auto_exclude += Polyphemus, Prince Ribbit, Psyche, Roxanne, Saint Roka, Sigmund, Snorg
+auto_exclude += Sojobo, Sonja, Terence, Urug, Wiglaf, Xtahua, hog, slave
+
+# AUTOINSCRIPTIONS
+
+# Set Alias
+ai := autoinscribe
+
+# Convenient shortcuts
+ai += curing:@q1
+ai += potions? of heal wounds:@q2
+ai += potions? of haste:@q3
+
+ai += identify:@r1
+ai += remove curse:@r2
+
+ai += scrolls? of teleportation:@r4
+
+ai += blowgun:@w4
+ai += (meat|bread) ration:@e1
+
+# Misc
+ai += [Mm]anual of:!d
+ai += dispersal:!d !f =f
+ai += large rock:!d !f =f
+ai += throwing net:!d !f =f
+
+# Consumables
+ai += potions? of berserk rage:!q
+ai += scrolls? of blinking:!r
+ai += scrolls? of vulnerability:!r
+ai += scrolls? of silence:!r
+
+# Jewellery
+ai += amulet of faith:!P
+ai += amulet of guardian spirit:!d
+ai += amulet of rage:!d
+ai += ring of poison resistance:!d
+ai += ring of protection from cold:!d
+ai += ring of protection from fire:!d
+ai += ring of protection from magic:!d
+ai += ring of wizardry:!d
+
+# Staves
+ai += magical staff:!a
+ai += staff of wizardry:!d
+
+# MORGUE SETTINGS
+note_chat_messages = true
+note_dgl_messages = true
+dump_item_origins = all
+dump_item_origin_price = 100
+dump_message_count = 100
+dump_order += vaults, turns_by_place, kills_by_place
+dump_book_spells = false
+ood_interesting = 6
+note_hp_percent = 25
+note_all_skill_levels = true
+note_xom_effects = true
+note_items += of Zot,rod,acquirement
+note_messages += Your scales start
+note_messages += protects you from harm
+note_messages += You (fall|are sucked) into a shaft
+note_messages += [bB]anish.*Abyss
+note_monsters += orb of fire,silver star,pearl dragon,ancient lich
