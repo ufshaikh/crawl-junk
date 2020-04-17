@@ -392,11 +392,50 @@ function toggle_safe_move()
     end
 end
 
+-- PLACE SPECIFIC OPTIONS
+
+branch = you.branch()
+depth = you.depth()
+
+function set_zig_options()
+   crawl.setopt("flash_screen_message += You flicker back into view")
+   crawl.setopt("flash_screen_message += Your transformation is almost over")
+   crawl.setopt("flash_screen_message += You feel yourself come back to life")
+   crawl.setopt("flash_screen_message += The darkness around you begins to abate")
+   crawl.setopt("flash_screen_message += The ambient light returns to normal")
+end
+
+function unset_zig_options()
+   crawl.setopt("flash_screen_message -= You flicker back into view")
+   crawl.setopt("flash_screen_message -= Your transformation is almost over")
+   crawl.setopt("flash_screen_message -= You feel yourself come back to life")
+   crawl.setopt("flash_screen_message -= The darkness around you begins to abate")
+   crawl.setopt("flash_screen_message -= The ambient light returns to normal")
+end
+
+function update_place_specific_options()
+   old_br, old_depth = branch, depth
+   branch, depth = you.branch(), you.depth()
+   dprint("old_br" .. " " .. old_br)
+   dprint("branch" .. " " .. branch)
+   if old_br == branch then dprint("true") else dprint("false") end
+   if not (old_br == branch) then
+      dprint("upsp")
+      if branch == "Zig" then
+         set_zig_options()
+      end
+      if old_br == "Zig" then
+         unset_zig_options()
+      end
+   end
+end
+
 function ready()
   if you.status("death's door (expiring)") then
     crawl.mpr("DDoor is almost expired!")
   end
   dmsl_dance()
+  update_place_specific_options()
 end
 }
 
@@ -729,11 +768,6 @@ more += rapidly growing quiet
 flash := flash_screen_message
 flash += Your life is in your own hands
 flash += Your time is quickly running out
-flash += You flicker back into view
-flash += Your transformation is almost over
-flash += You feel yourself come back to life
-flash += The darkness around you begins to abate
-flash += The ambient light returns to normal
 
 # SPELL SLOTS
 
