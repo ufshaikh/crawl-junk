@@ -3,7 +3,6 @@
 -- UTILITY FUNCTIONS
 
 function magic(command)
-  dprint("Magic: " .. command)
   crawl.process_keys(command .. string.char(27) .. string.char(27) ..
                      string.char(27))
 end
@@ -25,20 +24,23 @@ function max_miscast_dam(x) -- string -> int
    return math.ceil(fail * level * level / 10)
 end
 
-function _print_max_miscast_dam_array(xs) -- table -> None (IO)
+-- we call mpr only once each time we print info for a bunch of spells
+-- to avoid crawl putting semicolons in everywhere
+function _print_max_miscast_dam_array(xs, str) -- table, string -> None (IO)
    for i,x in pairs(xs) do
-      crawl.mpr(x .. ": " .. max_miscast_dam(x))
+      str = str .. "\n" .. x .. ": " .. max_miscast_dam(x)
    end
+   crawl.mpr(str)
 end
 
-function spells_max_miscast_dams() -- None -> None (IO)
-   crawl.mpr("Spells: maximum miscast damages")
-   _print_max_miscast_dam_array(you.spells())
+function spells_max_miscast_dams() -- None -> None
+   s = "Spells: maximum miscast damages"
+   _print_max_miscast_dam_array(you.spells(), s)
 end
 
-function library_max_miscast_dams() -- None -> None (IO)
-   crawl.mpr("Library: maximum miscast damages")
-   _print_max_miscast_dam_array(you.mem_spells())
+function library_max_miscast_dams() -- None -> None
+   s = "Library: maximum miscast damages"
+   _print_max_miscast_dam_array(you.mem_spells(), s)
 end
 
 -- DEFLECT MISSILES
@@ -74,7 +76,13 @@ end
 _lookup_table = {}
 
 function populate_lookup_table()
-   for i=1,100,1 do
+   for i=0,100,1 do
+      if i <= 0 then
+         _lookup_table[0] = i
+      end
+      if i >= 100 then
+         _lookup_table[100] = i
+      end
       displayed_rate = math.max(1, math.floor(100 * raw_fail_to_fail(i)))
       _lookup_table[displayed_rate] = i
    end
@@ -95,9 +103,9 @@ function is_dmsl_safe()
    -- buffers are better than cutting it as close as possible
    dam = max_miscast_dam(dm) -- max elec damage
    hp, mhp = you.hp()
-   -- 25% hp buffer. % of mhp on the principle that how much hp is safe depends
+   -- 20% hp buffer. % of mhp on the principle that how much hp is safe depends
    -- on where in the game you are
-   toret = hp >= dam + math.floor(mhp / 4)
+   toret = hp >= dam + math.ceil(mhp / 5)
    if not toret or hp < 50 then
       dprint("Error, not enough hp for fail rate.")
       dmsl_state = 0
@@ -107,7 +115,7 @@ function is_dmsl_safe()
    if spells.fail_severity(dm) >= 4 then
       dprint("Error, fail severity too severe but fail rate didn't catch it!")
       dmsl_state = 0
-      return toret
+      return false
    end
    return true
 end
