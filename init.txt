@@ -416,11 +416,7 @@ end
 function update_place_specific_options()
    old_br, old_depth = branch, depth
    branch, depth = you.branch(), you.depth()
-   dprint("old_br" .. " " .. old_br)
-   dprint("branch" .. " " .. branch)
-   if old_br == branch then dprint("true") else dprint("false") end
    if not (old_br == branch) then
-      dprint("upsp")
       if branch == "Zig" then
          set_zig_options()
       end
