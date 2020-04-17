@@ -1,12 +1,8 @@
 {
-
-dmsl_state = 0 -- normal, unequipping, casting, reequipping
-arm_slot = nil
-weap_slot = nil
-dm = "deflect missiles"
-debugp = true
+-- UTILITY FUNCTIONS
 
 function magic(command)
+  dprint("Magic: " .. command)
   crawl.process_keys(command .. string.char(27) .. string.char(27) ..
                      string.char(27))
 end
@@ -15,6 +11,83 @@ function dprint(str)
    if debugp then
       crawl.mpr(str)
    end
+end
+
+-- DEFLECT MISSILES
+
+-- constants
+dmsl_state = 0 -- normal, unequipping, casting, reequipping
+arm_slot = nil
+weap_slot = nil
+dm = "deflect missiles"
+debugp = true
+
+-- get number of triples of non-negative numbers with sum < n
+-- corresponds to _tetrahedral_number in spl-cast.cc
+function tet_num(x) -- int -> int
+   return x * (x+1) * (x+2) / 6
+end
+
+-- takes raw fail and transforms it into a probability to fail
+-- (what the player sees in the I screen)
+-- corresponds to _get_true_fail_rate in spl-cast.cc
+function raw_fail_to_fail(x) -- int -> double
+   outcomes = 101 * 101 * 100
+   target = x * 3
+   if target <= 100 then
+      return tet_num(target) / outcomes
+   end
+   if target <= 200 then
+      return ((tet_num(target) - 2 * tet_num(target - 101) - tet_num(target - 100)) / outcomes)
+   end
+   return (outcomes - tet_num(300 - target)) / outcomes
+end
+
+_lookup_table = {}
+
+function populate_lookup_table()
+   for i=1,100,1 do
+      displayed_rate = math.max(1, math.floor(100 * raw_fail_to_fail(i)))
+      _lookup_table[displayed_rate] = i
+   end
+end
+
+populate_lookup_table()
+
+-- take displayed fail and get raw fail
+-- displayed fail is truncated when cast from double to int, so multiple raw
+-- fails might be displayed the same way. for a given displayed fail we return
+-- the highest raw fail displayed that way
+function fail_to_raw_fail(x) --> int -> int
+   return _lookup_table[x]
+end
+
+function is_dmsl_safe()
+   -- it's fine to force manual casting in sketchy situations---healthy
+   -- buffers are better than cutting it as close as possible
+   fail = fail_to_raw_fail(spells.fail(dm))
+   if not fail then  -- this shouldn't ever happen....
+      dprint("Error, couldn't get raw fail rate.")
+      dmsl_state = 0
+      return
+   end
+   dam = fail * 6 * 6 / 10 -- max elec damage
+   hp, mhp = you.hp()
+   -- 25% hp buffer. % of mhp on the principle that how much hp is safe depends
+   -- on where in the game you are
+   toret = hp >= dam + math.floor(mhp / 4)
+   if not toret or hp < 50 then
+      dprint("Error, not enough hp for fail rate.")
+      dmsl_state = 0
+      return toret
+   end
+   -- sanity check... a little paranoid but ok
+   if spells.fail_severity(dm) >= 4 then
+      dprint("Error, fail severity too severe but fail rate didn't catch it!")
+      dmsl_state = 0
+      return toret
+   end
+   return true
 end
 
 function dmsl_dance_init()
@@ -31,9 +104,10 @@ function dmsl_dance_init()
 end
 
 function can_dmsl_dance()
+   -- safety is checked prior to each cast not at the start since it is hard to
+   -- predict what fail rate will be after taking off armour, putting on wiz
+   -- equipment, etc
    if not spells.memorised(dm)
-    --  or spells.fail_severity(dm) > 1
-    --  or spells.fail(dm) > 50
    or you.status(dm) then
       return false
    end
@@ -54,7 +128,7 @@ function dmsl_dance()
    if dmsl_state == 1 then
       dprint("Dealing with dmsl_state of 1.")
       cur_arm = items.equipped_at("armour")
-      if cur_arm then
+      if cur_arm and cur_arm.encumbrance > 0 then
          magic("T" .. items.index_to_letter(cur_arm.slot))
          return
       end
@@ -75,6 +149,11 @@ function dmsl_dance()
 
    if dmsl_state == 2 then
       dprint("Dealing with dmsl_state of 2.")
+      if not is_dmsl_safe() then
+         dprint("Aborting dmsl dance, unsafe!")
+         dmsl_state = 0
+         return
+      end
       if you.hunger() < 3 then
          dmsl_state = 0
          return
@@ -113,8 +192,11 @@ function dmsl_dance()
          else
             let = items.index_to_letter(weap_slot)
          end
+         -- needed in case ease_unequip option is set
+         if not items.inslot(weap_slot) == items.equipped_at("weapon") then
+            magic("w" .. let)
+         end
          weap_slot = nil
-         magic("w" .. let)
       end
       dmsl_state = 0
    end
@@ -809,8 +891,8 @@ ai += magical staff:!a
 ai += staff of wizardry:!d
 
 # MORGUE SETTINGS
-note_chat_messages = true
-note_dgl_messages = true
+note_chat_messages = false
+note_dgl_messages = false
 dump_item_origins = all
 dump_item_origin_price = 100
 dump_message_count = 100
