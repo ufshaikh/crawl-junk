@@ -1,5 +1,8 @@
 -- -*- mode: lua; -*-
 {
+
+debugp = true -- debug printing
+
 -- UTILITY FUNCTIONS
 
 function magic(command)
@@ -33,24 +36,15 @@ function _print_max_miscast_dam_array(xs, str) -- table, string -> None (IO)
    crawl.mpr(str)
 end
 
-function spells_max_miscast_dams() -- None -> None
+function spells_max_miscast_dams() -- None -> None (IO)
    s = "Spells: maximum miscast damages"
    _print_max_miscast_dam_array(you.spells(), s)
 end
 
-function library_max_miscast_dams() -- None -> None
+function library_max_miscast_dams() -- None -> None (IO)
    s = "Library: maximum miscast damages"
    _print_max_miscast_dam_array(you.mem_spells(), s)
 end
-
--- DEFLECT MISSILES
-
--- constants
-dmsl_state = 0 -- normal, unequipping, casting, reequipping
-arm_slot = nil
-weap_slot = nil
-dm = "deflect missiles"
-debugp = true
 
 -- get number of triples of non-negative numbers with sum < n
 -- corresponds to _tetrahedral_number in spl-cast.cc
@@ -97,6 +91,68 @@ populate_lookup_table()
 function fail_to_raw_fail(x) -- int -> int
    return _lookup_table[x]
 end
+
+-- what are the chances the roll to cast will hit a specific number
+function chance_of_fail_level(target)
+   return raw_fail_to_fail(target + 1) - raw_fail_to_fail(target)
+end
+
+-- implemented more or less like fail_severity in spl-cast.cc
+function chance_for_x_or_more_dam(spl, d) -- string, int -> double
+   fail = fail_to_raw_fail(spells.fail(spl))
+   lvl = spells.level(spl)
+   lvl2 = lvl * lvl
+   -- First let's just bail if it's impossible to do damage
+   if fail * lvl2 <= 100 then
+      return 0
+   end
+
+   chance = 0
+   for i=0,fail,1 do
+      miss_amt = fail - i
+      -- damage is miss_amt * lvl2 / 10
+      if miss_amt * lvl2 > 100 and miss_amt * lvl2 >= d * 10 then
+         chance = chance + chance_of_fail_level(i)
+      end
+   end
+   return chance * 100
+end
+
+-- TODO: consolidate with other functions printing info for all spells
+function _print_chances_to_suffer_x_dam_array(xs, str, d) -- table, string, int -> None (IO)
+   for i,x in pairs(xs) do
+      str = str .. "\n" .. x .. ": " .. chance_for_x_or_more_dam(x, d)
+   end
+   crawl.mpr(str)
+end
+
+function spells_chances_to_suffer_x_dams(d) -- Int -> None (IO)
+   s = "Spells: chances to suffer " .. tostring(d) .. " damage: "
+   _print_chances_to_suffer_x_dam_array(you.spells(), s, d)
+end
+
+function library_chances_to_suffer_x_dams(d) -- Int -> None (IO)
+   s = "Library: maximum suffer " .. tostring(d) .. "damage: "
+   _print_chances_to_suffer_x_dam_array(you.mem_spells(), s, d)
+end
+
+function spells_chances_to_suffer_x_dams_w_prompt() -- None -> None (IO)
+   num = crawl.c_input_line()
+   if not num then
+      crawl.mpr("Error, invalid input.")
+      return
+   end
+   spells_chances_to_suffer_x_dams(num)
+   return
+end
+
+-- DEFLECT MISSILES
+
+-- constants
+dmsl_state = 0 -- normal, unequipping, casting, reequipping
+arm_slot = nil
+weap_slot = nil
+dm = "deflect missiles"
 
 function is_dmsl_safe()
    -- it's fine to force manual casting in sketchy situations---healthy
