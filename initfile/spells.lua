@@ -260,8 +260,8 @@ function dmsl_dance()
          else
             let = items.index_to_letter(weap_slot)
          end
-         -- needed in case ease_unequip option is set
-         if not (items.inslot(weap_slot) == items.equipped_at("weapon")) then
+         -- needed in case easy_unequip option is set
+         if not (weap_slot == items.equipped_at("weapon").slot) then
             magic("w" .. let)
          end
          weap_slot = nil
