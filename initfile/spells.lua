@@ -1,12 +1,20 @@
 -- SPELLS & MISCASTS
 
+-- constants:
+miscast_divisor = 15
+miscast_threshold = 150
+
 -- take spell name or displayed fail rate and output max possible "damage" from
 -- a miscast. Note that "damage" might not be literal damage (it could be turns
 -- of slow, e.g.)
 function max_miscast_dam(x) -- string -> int
    fail = fail_to_raw_fail(spells.fail(x))
    level = spells.level(x)
-   return math.ceil(fail * level * level / 10)
+   nastiness = fail * level * level
+   if nastiness <= miscast_threshold then
+      return 0
+   end
+   return math.ceil(nastiness / miscast_divisor)
 end
 
 -- we call mpr only once each time we print info for a bunch of spells
@@ -85,7 +93,7 @@ function chance_for_x_or_more_dam(spl, d) -- string, int -> double
    lvl = spells.level(spl)
    lvl2 = lvl * lvl
    -- First let's just bail if it's impossible to do damage
-   if fail * lvl2 <= 100 then
+   if fail * lvl2 <= miscast_threshold then
       return 0
    end
 
@@ -93,7 +101,8 @@ function chance_for_x_or_more_dam(spl, d) -- string, int -> double
    for i=0,fail,1 do
       miss_amt = fail - i
       -- damage is miss_amt * lvl2 / 10
-      if miss_amt * lvl2 > 100 and miss_amt * lvl2 >= d * 10 then
+      if miss_amt * lvl2 > miscast_threshold
+      and miss_amt * lvl2 >= d * miscast_divisor then
          chance = chance + chance_of_fail_level(i)
       end
    end
