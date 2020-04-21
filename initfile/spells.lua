@@ -73,7 +73,11 @@ function chance_for_x_or_more_dam(spl, d) -- string, int -> double
    fail = fail_to_raw_fail(spells.fail(spl))
    lvl = spells.level(spl)
    lvl2 = lvl * lvl
-   -- First let's just bail if it's impossible to do damage
+   -- Special cases first:
+   if d <= 0 then
+      return 100
+   end
+   -- Bail if it's impossible to do non-zero damage
    if fail * lvl2 <= miscast_threshold then
       return 0
    end
