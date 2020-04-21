@@ -1,7 +1,7 @@
 # KEYBINDS
 
-macros += M \{-1015} ===spells_max_miscast_dams
-macros += M \{-1016} ===library_max_miscast_dams
+macros += M \{-1015} ===spells_info
+macros += M \{-1016} ===spells_info_lib
 
 macros += M 5 ===custom_rest
 macros += M o ===custom_autoexplore

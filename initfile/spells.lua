@@ -17,25 +17,6 @@ function max_miscast_dam(x) -- string -> int
    return math.ceil(nastiness / miscast_divisor)
 end
 
--- we call mpr only once each time we print info for a bunch of spells
--- to avoid crawl putting semicolons in everywhere
-function _print_max_miscast_dam_array(xs, str) -- table, string -> None (IO)
-   for i,x in pairs(xs) do
-      str = str .. "\n" .. x .. ": " .. max_miscast_dam(x)
-   end
-   crawl.mpr(str)
-end
-
-function spells_max_miscast_dams() -- None -> None (IO)
-   s = "Spells: maximum miscast damages"
-   _print_max_miscast_dam_array(you.spells(), s)
-end
-
-function library_max_miscast_dams() -- None -> None (IO)
-   s = "Library: maximum miscast damages"
-   _print_max_miscast_dam_array(you.mem_spells(), s)
-end
-
 -- get number of triples of non-negative numbers with sum < n
 -- corresponds to _tetrahedral_number in spl-cast.cc
 function tet_num(x) -- int -> int
@@ -109,32 +90,40 @@ function chance_for_x_or_more_dam(spl, d) -- string, int -> double
    return chance * 100
 end
 
--- TODO: consolidate with other functions printing info for all spells
-function _print_chances_to_suffer_x_dam_array(xs, str, d) -- table, string, int -> None (IO)
+-- table, string, number -> string
+function get_spells_info(xs, s, threshold)
+   s = s .. "max possible damage, chance to suffer " .. tostring(threshold)
+      .. " or more damage:"
+   -- the longest spell name is 24 chars (I think)
+   -- a tie between mystic blast and revivificaton
    for i,x in pairs(xs) do
-      str = str .. "\n" .. x .. ": " .. chance_for_x_or_more_dam(x, d)
+      spl_s = string.format("\n%-29s%4d%10.2f", x, max_miscast_dam(x),
+                            chance_for_x_or_more_dam(x, threshold))
+      s = s .. spl_s
    end
-   crawl.mpr(str)
+   return s
 end
 
-function spells_chances_to_suffer_x_dams(d) -- Int -> None (IO)
-   s = "Spells: chances to suffer " .. tostring(d) .. " damage: "
-   _print_chances_to_suffer_x_dam_array(you.spells(), s, d)
-end
-
-function library_chances_to_suffer_x_dams(d) -- Int -> None (IO)
-   s = "Library: maximum suffer " .. tostring(d) .. "damage: "
-   _print_chances_to_suffer_x_dam_array(you.mem_spells(), s, d)
-end
-
-function spells_chances_to_suffer_x_dams_w_prompt() -- None -> None (IO)
-   num = crawl.c_input_line()
+function get_dam_threshold() -- None (IO) -> Int or nil (IO)
+   crawl.mpr("Damage over or above what number?")
+   num = tonumber(crawl.c_input_line())
    if not num then
       crawl.mpr("Error, invalid input.")
-      return
+      return nil
    end
-   spells_chances_to_suffer_x_dams(num)
-   return
+   return num
+end
+
+function spells_info() -- None -> None (IO)
+   threshold = get_dam_threshold()
+   info = get_spells_info(you.spells(), "Spells: ", threshold)
+   crawl.mpr(info)
+end
+
+function spells_info_lib() -- None -> None (IO)
+   threshold = get_dam_threshold()
+   info = get_spells_info(you.mem_spells(), "Library: ", threshold)
+   crawl.mpr(info)
 end
 
 -- DEFLECT MISSILES
