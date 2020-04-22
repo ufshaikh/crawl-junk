@@ -109,7 +109,7 @@ function get_spells_info(xs, s, threshold)
 end
 
 function get_dam_threshold() -- None (IO) -> Int or nil (IO)
-   crawl.mpr("Damage over or above what number?")
+   crawl.mpr("Damage over or above what number? ")
    num = tonumber(crawl.c_input_line())
    if not num then
       crawl.mpr("Error, invalid input.")
