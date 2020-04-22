@@ -120,12 +120,18 @@ end
 
 function spells_info() -- None -> None (IO)
    threshold = get_dam_threshold()
+   if not threshold then
+      return
+   end
    info = get_spells_info(you.spells(), "Spells: ", threshold)
    crawl.mpr(info)
 end
 
 function spells_info_lib() -- None -> None (IO)
    threshold = get_dam_threshold()
+   if not threshold then
+      return
+   end
    info = get_spells_info(you.mem_spells(), "Library: ", threshold)
    crawl.mpr(info)
 end
