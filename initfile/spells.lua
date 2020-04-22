@@ -4,9 +4,8 @@
 miscast_divisor = 15
 miscast_threshold = 150
 
--- take spell name or displayed fail rate and output max possible "damage" from
--- a miscast. Note that "damage" might not be literal damage (it could be turns
--- of slow, e.g.)
+-- take spell name and output max possible "damage" from a miscast. Note that
+-- "damage" might not be literal damage (it could be turns of slow, e.g.)
 function max_miscast_dam(x) -- string -> int
    fail = fail_to_raw_fail(spells.fail(x))
    level = spells.level(x)
