@@ -8,7 +8,7 @@ function custom_rest()
         if crawl.yesnoquit("Wait 100 turns?", true, 'n') == 1 then
         crawl.sendkeys("5")
         end
-    else crawl.sendkeys(conditional_cast_regen(90, 3) .. "5")
+    else crawl.sendkeys("5")
     end
 end
 
@@ -36,8 +36,7 @@ function custom_autoexplore()
     if swap then action = "w" .. swap end
     local dummy, mmp = you.mp()
     local mp_threshold = math.max(3, math.ceil(mmp / 2))
-    action = action .. conditional_cast_regen(101, mp_threshold) .. "o"
-    crawl.sendkeys(action)
+    crawl.sendkeys(action .. "o")
 end
 
 function custom_move_dl()

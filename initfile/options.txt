@@ -9,8 +9,6 @@ bindkey = [~] CMD_LUA_CONSOLE
 macros += M t Z
 macros += M T t
 macros += M z \{32}
-macros += M p ===dmsl_dance_init
-
 macros += M b ===custom_move_dl
 macros += M h ===custom_move_l
 macros += M j ===custom_move_d
@@ -337,7 +335,6 @@ flash += Your time is quickly running out
 
 slot := spell_slot
 
-spell_slot += regeneration:R
 spell_slot += ensorcelled hibernation:e
 spell_slot += shroud of golubria:G
 spell_slot += ozocubu's armour:A
