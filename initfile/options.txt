@@ -62,6 +62,7 @@ mp_colour = 100:green, 99:lightgrey, 80:yellow, 70:lightred, 50:red
 stat_colour = 3:red, 7:lightred
 
 auto_butcher = hungry
+auto_butcher_max_chunks = 0
 confirm_butcher = never
 easy_eat_chunks = true
 auto_eat_chunks = true
@@ -151,6 +152,7 @@ runrest_ignore_monster += butterfly:1
 rest_wait_both = true
 : end
 
+explore_auto_rest = false
 rest_wait_ancestor = true
 
 # FORCE MORES
