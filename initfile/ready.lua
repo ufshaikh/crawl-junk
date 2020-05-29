@@ -1,4 +1,5 @@
 function ready()
+  update_safe()
   if you.status("death's door (expiring)") then
     crawl.mpr("DDoor is almost expired!")
   end

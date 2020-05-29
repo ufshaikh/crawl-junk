@@ -9,18 +9,9 @@ bindkey = [~] CMD_LUA_CONSOLE
 macros += M t Z
 macros += M T t
 macros += M z \{32}
-macros += M b ===custom_move_dl
-macros += M h ===custom_move_l
-macros += M j ===custom_move_d
-macros += M k ===custom_move_u
-macros += M l ===custom_move_r
-macros += M n ===custom_move_dr
-macros += M u ===custom_move_ur
-macros += M y ===custom_move_ul
 
 macros += M \{9} ===custom_autofight
 macros += M \{8} ===custom_autofight
-macros += M \{-353} ===custom_autofight_nomove
 macros += M \{-263} ===custom_autofight
 
 macros += M \{27} ===toggle_safe_move

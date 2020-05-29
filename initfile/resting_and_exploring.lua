@@ -39,91 +39,9 @@ function custom_autoexplore()
     crawl.sendkeys(action .. "o")
 end
 
-function custom_move_dl()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_DOWN_LEFT"
-    else
-        a[1] = "CMD_MOVE_DOWN_LEFT"
-    end
-    crawl.do_commands(a)
-end
-
-function custom_move_l()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_LEFT"
-    else
-        a[1] = "CMD_MOVE_LEFT"
-    end
-    crawl.do_commands(a)
-end
-
-function custom_move_d()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_DOWN"
-    else
-        a[1] = "CMD_MOVE_DOWN"
-    end
-    crawl.do_commands(a)
-end
-
-function custom_move_r()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_RIGHT"
-    else
-        a[1] = "CMD_MOVE_RIGHT"
-    end
-    crawl.do_commands(a)
-end
-
-function custom_move_dr()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_DOWN_RIGHT"
-    else
-        a[1] = "CMD_MOVE_DOWN_RIGHT"
-    end
-    crawl.do_commands(a)
-end
-
-function custom_move_u()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_UP"
-    else
-        a[1] = "CMD_MOVE_UP"
-    end
-    crawl.do_commands(a)
-end
-
-function custom_move_ur()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_UP_RIGHT"
-    else
-        a[1] = "CMD_MOVE_UP_RIGHT"
-    end
-    crawl.do_commands(a)
-end
-
-function custom_move_ul()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_SAFE_MOVE_UP_LEFT"
-    else
-        a[1] = "CMD_MOVE_UP_LEFT"
-    end
-    crawl.do_commands(a)
-end
-
 function custom_autofight()
     a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_NO_CMD_DEFAULT"
-    elseif you.status("icy armour") or you.status("icy armour (expiring)") then
+    if you.status("icy armour") or you.status("icy armour (expiring)") then
         a[1] = "CMD_AUTOFIGHT_NOMOVE"
     else
         a[1] = "CMD_AUTOFIGHT"
@@ -131,18 +49,19 @@ function custom_autofight()
     crawl.do_commands(a)
 end
 
-function custom_autofight_nomove()
-    a = {}
-    if safe_move_toggle then
-        a[1] = "CMD_NO_CMD_DEFAULT"
-    else
-        a[1] = "CMD_AUTOFIGHT_NOMOVE"
-    end
-    crawl.do_commands(a)
-end
-
 safe_move_toggle = true
 crawl.setopt("mon_glyph += player : green")
+
+safe = you.feel_safe()
+
+function update_safe()
+   local old_safe = safe
+   safe = you.feel_safe()
+   if safe_move_toggle and not safe and old_safe then
+      crawl.mpr("Danger!", 6)
+      crawl.more()
+   end
+end
 
 function toggle_safe_move()
     if safe_move_toggle then
