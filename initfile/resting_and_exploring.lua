@@ -1,20 +1,3 @@
-function conditional_cast_regen(hp_per_th, mp_th) --thresholds
-    if spells.memorised("Regeneration")
-        and spells.fail_severity("Regeneration") < 1
-        and spells.fail("Regeneration") < 50
-        -- you.status("Regenerating") does not get the expected result, idk why
-        and (not string.find(you.status(), "regen") --needs lowercase
-            or string.find(you.status(), "regen.*expiring"))
-        and you.mp() > mp_th
-        and hp_percent() < hp_per_th
-        and you.contaminated()==0
-    and you.hunger() > 3 then
-        return "ZR"
-    else
-        return ""
-    end
-end
-
 function custom_rest()
     if not you.feel_safe() then
         crawl.mpr("But you're not safe!")
